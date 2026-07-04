@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdint>
+#include <array>
 #include "bus.hpp"
 
 struct RegisterPair
@@ -29,6 +30,9 @@ class Sm83
 {
 public:
     Sm83(Bus &bus) : bus(bus) {}
+
+    uint16_t PC;
+    uint16_t SP;
 
     RegisterPair AF; // Accumulator & Flags
     RegisterPair BC;
@@ -74,6 +78,26 @@ public:
         bus.write8(addr + 1, val >> 8);
     }
 
+    // Cycle
+    int step()
+    {
+        uint8_t opcode = bus.read8(PC++);
+        Handler h = opcodeTable[opcode];
+        return (this->*h)(opcode);
+    }
+
 private:
     Bus &bus;
+
+    using Handler = int (Sm83::*)(uint8_t opcode);
+    static const std::array<Handler, 256> opcodeTable;
+
+    uint8_t getR(uint8_t idx) const; // idx 0..7 -> B,C,D,E,H,L,(HL),A
+    void setR(uint8_t idx, uint8_t val);
+
+    int op_00_NOP(uint8_t opcode);
+    int op_06_LD_B_d8(uint8_t opcode);
+    int op_LD_r_r(uint8_t opcde);
+
+    int op_unknown(uint8_t opcode);
 };
