@@ -88,6 +88,7 @@ public:
 
 private:
     Bus &bus;
+    bool IME = false; // Interrupt master enable ei = 1, di = 0, reti = 1+ret
 
     using Handler = int (Sm83::*)(uint8_t opcode);
     static const std::array<Handler, 256> opcodeTable;
@@ -103,6 +104,9 @@ private:
     int op_LD_rr_d16(uint8_t opcode);    // 0x01/0x11/0x21/0x31
     int op_LD_HLI_HLD_A(uint8_t opcode); // 0x22/0x2A/0x32/0x3A
     int op_LD_BC_DE_A(uint8_t opcode);   // 0x02/0x0A/0x12/0x1A
+    int op_LD_a16_A(uint8_t opcode);     // 0xEA/0xFA
+    int op_LDH_a8_A(uint8_t opcode);     // 0xE0/0xF0
+    int op_LD_C_A(uint8_t opcode);       // 0xE2/0xF2
 
     int op_JR_e8(uint8_t opcode);    // Ox18
     int op_JR_cc_e8(uint8_t opcode); // 0x20 0x28 0x30 0x38
@@ -119,6 +123,18 @@ private:
     int op_RETI(uint8_t opcode);   // 0xD9
 
     int op_RST(uint8_t opcode); // 0xC7 0xCF 0xD7 0xDF 0xE7 0xEF 0xF7 0xFF
+
+    int op_INC_r(uint8_t opcode); // 0x04/0x0C/0x14/0x1C/0x24/0x2C/0x34/0x3C
+    int op_DEC_r(uint8_t opcode); // 0x05/0x0D/0x15/0x1D/0x25/0x2D/0x35/0x3D
+
+    int op_DI(uint8_t opcode); // 0xF3
+    int op_EI(uint8_t opcode); // 0xFB
+
+    int op_PUSH_rr(uint8_t opcode); // 0xC5/0xD5/0xE5/0xF5
+    int op_POP_rr(uint8_t opcode);  // 0xC1/0xD1/0xE1/0xF1
+
+    int op_INC_rr(uint8_t opcode); // 0x03/0x13/0x23/0x33
+    int op_DEC_rr(uint8_t opcode); // 0x0B/0x1B/0x2B/0x3B
 
     int op_unknown(uint8_t opcode);
 };
