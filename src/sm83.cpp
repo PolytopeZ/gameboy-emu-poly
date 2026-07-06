@@ -8,12 +8,6 @@ int Sm83::op_00_NOP(uint8_t opcode)
     return 4;
 }
 
-int Sm83::op_06_LD_B_d8(uint8_t opcode)
-{
-    B = bus.read8(PC++);
-    return 8;
-}
-
 int Sm83::op_JR_e8(uint8_t opcode)
 {
     int8_t offset = (int8_t)bus.read8(PC++);
@@ -118,6 +112,100 @@ int Sm83::op_RST(uint8_t opcode)
     return 16;
 }
 
+int Sm83::op_LD_r_r(uint8_t opcode)
+{
+    uint8_t dst = (opcode >> 3) & 0x7;
+    uint8_t src = opcode & 0x7;
+    setR(dst, getR(src));
+    if (dst == 6 || src == 6)
+    {
+        return 8; // HL = extra cycles
+    }
+    else
+    {
+        return 4;
+    }
+}
+
+int Sm83::op_LD_rr_d16(uint8_t opcode)
+{
+    uint8_t rr = (opcode >> 4) & 0x3;
+    uint16_t val = read16(PC);
+    PC += 2;
+    switch (rr)
+    {
+    case 0:
+        BC.val = val;
+        break;
+    case 1:
+        DE.val = val;
+        break;
+    case 2:
+        HL.val = val;
+        break;
+    case 3:
+        SP = val;
+        break;
+    }
+    return 12;
+}
+
+int Sm83::op_LD_r_d8(uint8_t opcode)
+{
+    uint8_t dst = (opcode >> 3) & 0x7;
+    uint8_t val = bus.read8(PC++);
+    setR(dst, val);
+    if (dst == 6)
+    {
+        return 12;
+    }
+    else
+    {
+        return 8;
+    }
+}
+
+int Sm83::op_LD_HLI_HLD_A(uint8_t opcode)
+{
+    bool isLoad = opcode & 0x08;
+    bool isDec = opcode & 0x10;
+
+    if (isLoad)
+        A = bus.read8(HL.val);
+    else
+        bus.write8(HL.val, A);
+
+    HL.val += isDec ? -1 : 1;
+    return 8;
+}
+
+int Sm83::op_LD_BC_DE_A(uint8_t opcode)
+{
+    bool isLoad = opcode & 0x08;
+    bool isDE = opcode & 0x10;
+    uint16_t addr;
+
+    if (isDE)
+    {
+        addr = DE.val;
+    }
+    else
+    {
+        addr = BC.val;
+    }
+
+    if (isLoad)
+    {
+        A = bus.read8(addr);
+    }
+    else
+    {
+        bus.write8(addr, A);
+    }
+
+    return 8;
+}
+
 int Sm83::op_unknown(uint8_t opcode)
 {
     std::fprintf(stderr, "Unknown opcode at PC=%04X\n", PC - 1);
@@ -203,13 +291,20 @@ const std::array<Sm83::Handler, 256> Sm83::opcodeTable = []
     std::array<Handler, 256> t{};
     t.fill(&Sm83::op_unknown);
     t[0x00] = &Sm83::op_00_NOP;
-    t[0x06] = &Sm83::op_06_LD_B_d8;
     t[0x18] = &Sm83::op_JR_e8;
     t[0xC3] = &Sm83::op_JP_a16;
     t[0xE9] = &Sm83::op_JP_HL;
     t[0xCD] = &Sm83::op_CALL_a16;
     t[0xC9] = &Sm83::op_RET;
     t[0xD9] = &Sm83::op_RETI;
+    t[0x22] = &Sm83::op_LD_HLI_HLD_A;
+    t[0x2A] = &Sm83::op_LD_HLI_HLD_A;
+    t[0x32] = &Sm83::op_LD_HLI_HLD_A;
+    t[0x3A] = &Sm83::op_LD_HLI_HLD_A;
+    t[0x02] = &Sm83::op_LD_BC_DE_A;
+    t[0x0A] = &Sm83::op_LD_BC_DE_A;
+    t[0x12] = &Sm83::op_LD_BC_DE_A;
+    t[0x1A] = &Sm83::op_LD_BC_DE_A;
 
     for (uint8_t dst = 0; dst < 8; ++dst)
     {
@@ -223,6 +318,16 @@ const std::array<Sm83::Handler, 256> Sm83::opcodeTable = []
             }
             t[0x40 + dst * 8 + src] = &Sm83::op_LD_r_r;
         }
+    }
+
+    for (uint8_t dst = 0; dst < 8; ++dst)
+    {
+        t[0x06 + dst * 8] = &Sm83::op_LD_r_d8;
+    }
+
+    for (uint8_t rr = 0; rr < 4; ++rr)
+    {
+        t[0x01 + rr * 0x10] = &Sm83::op_LD_rr_d16;
     }
 
     for (uint8_t cc = 0; cc < 4; cc++)
@@ -240,18 +345,3 @@ const std::array<Sm83::Handler, 256> Sm83::opcodeTable = []
 
     return t;
 }();
-
-int Sm83::op_LD_r_r(uint8_t opcode)
-{
-    uint8_t dst = (opcode >> 3) & 0x7;
-    uint8_t src = opcode & 0x7;
-    setR(dst, getR(src));
-    if (dst == 6 || src == 6)
-    {
-        return 8; // HL = extra cycles
-    }
-    else
-    {
-        return 4;
-    }
-}

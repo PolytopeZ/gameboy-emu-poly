@@ -98,8 +98,11 @@ private:
     bool checkCond(uint8_t cc) const; // cc: 0=NZ,1=Z,2=NC,3=C
 
     int op_00_NOP(uint8_t opcode);
-    int op_06_LD_B_d8(uint8_t opcode);
+    int op_LD_r_d8(uint8_t opcode); // 0x06/0x0E/0x16/0x1E/0x26/0x2E/0x36/0x3E
     int op_LD_r_r(uint8_t opcde);
+    int op_LD_rr_d16(uint8_t opcode);    // 0x01/0x11/0x21/0x31
+    int op_LD_HLI_HLD_A(uint8_t opcode); // 0x22/0x2A/0x32/0x3A
+    int op_LD_BC_DE_A(uint8_t opcode);   // 0x02/0x0A/0x12/0x1A
 
     int op_JR_e8(uint8_t opcode);    // Ox18
     int op_JR_cc_e8(uint8_t opcode); // 0x20 0x28 0x30 0x38
