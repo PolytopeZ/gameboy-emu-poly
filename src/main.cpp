@@ -35,5 +35,17 @@ int main(int argc, char **argv)
     std::fread(bus.mem.data(), 1, bus.mem.size(), f);
     std::fclose(f);
 
+    // Todo : remove, only for debug
+    for (int i = 0; i < 10000000; ++i)
+    {
+        cpu.step();
+
+        if (bus.mem[0xFF02] == 0x81)
+        {
+            std::putchar(bus.mem[0xFF01]);
+            bus.mem[0xFF02] = 0;
+        }
+    }
+
     return 0;
 }

@@ -14,6 +14,110 @@ int Sm83::op_06_LD_B_d8(uint8_t opcode)
     return 8;
 }
 
+int Sm83::op_JR_e8(uint8_t opcode)
+{
+    int8_t offset = (int8_t)bus.read8(PC++);
+    PC += offset;
+    return 12;
+}
+
+int Sm83::op_JR_cc_e8(uint8_t opcode)
+{
+    uint8_t cc = (opcode >> 3) & 0x3;
+    int8_t offset = (int8_t)bus.read8(PC++);
+    if (checkCond(cc))
+    {
+        PC += offset;
+        return 12;
+    }
+    return 8;
+}
+
+int Sm83::op_JP_a16(uint8_t opcode)
+{
+    PC = read16(PC);
+    return 16;
+}
+
+int Sm83::op_JP_cc_a16(uint8_t opcode)
+{
+    uint8_t cc = (opcode >> 3) & 0x3;
+    uint16_t addr = read16(PC);
+
+    PC += 2; // skip the opcode we read
+    if (checkCond(cc))
+    {
+        PC = addr;
+        return 16;
+    }
+    return 12;
+}
+int Sm83::op_JP_HL(uint8_t opcode)
+{
+    PC = HL.val;
+    return 4;
+}
+
+int Sm83::op_CALL_a16(uint8_t opcode)
+{
+    uint16_t addr = read16(PC);
+    PC += 2;
+    SP -= 2;
+    write16(SP, PC);
+    PC = addr;
+    return 24;
+}
+
+int Sm83::op_CALL_cc_a16(uint8_t opcode)
+{
+    uint8_t cc = (opcode >> 3) & 0x3;
+    uint16_t addr = read16(PC);
+    PC += 2;
+    if (checkCond(cc))
+    {
+        SP -= 2;
+        write16(SP, PC);
+        PC = addr;
+        return 24;
+    }
+    return 12;
+}
+
+int Sm83::op_RET(uint8_t opcode)
+{
+    PC = read16(SP);
+    SP += 2;
+    return 16;
+}
+
+int Sm83::op_RET_cc(uint8_t opcode)
+{
+    uint8_t cc = (opcode >> 3) & 0x3;
+    if (checkCond(cc))
+    {
+        PC = read16(SP);
+        SP += 2;
+        return 20;
+    }
+    return 8;
+}
+
+int Sm83::op_RETI(uint8_t opcode)
+{
+    PC = read16(SP);
+    SP += 2;
+    return 16;
+}
+
+int Sm83::op_RST(uint8_t opcode)
+{
+    uint16_t index = opcode & 0x38;
+    SP -= 2;
+    write16(SP, PC);
+    PC = index;
+    return 16;
+}
+
 int Sm83::op_unknown(uint8_t opcode)
 {
     std::fprintf(stderr, "Unknown opcode at PC=%04X\n", PC - 1);
@@ -76,6 +180,23 @@ void Sm83::setR(uint8_t idx, uint8_t val)
     }
 }
 
+// 0=NZ,1=Z,2=NC,3=C
+bool Sm83::checkCond(uint8_t cc) const
+{
+    switch (cc)
+    {
+    case 0:
+        return !getFlag(FLAG_Z);
+    case 1:
+        return getFlag(FLAG_Z);
+    case 2:
+        return !getFlag(FLAG_C);
+    case 3:
+        return getFlag(FLAG_C);
+    }
+    return false; // unreachable, cc is 2 bits
+}
+
 // Handlers
 const std::array<Sm83::Handler, 256> Sm83::opcodeTable = []
 {
@@ -83,6 +204,12 @@ const std::array<Sm83::Handler, 256> Sm83::opcodeTable = []
     t.fill(&Sm83::op_unknown);
     t[0x00] = &Sm83::op_00_NOP;
     t[0x06] = &Sm83::op_06_LD_B_d8;
+    t[0x18] = &Sm83::op_JR_e8;
+    t[0xC3] = &Sm83::op_JP_a16;
+    t[0xE9] = &Sm83::op_JP_HL;
+    t[0xCD] = &Sm83::op_CALL_a16;
+    t[0xC9] = &Sm83::op_RET;
+    t[0xD9] = &Sm83::op_RETI;
 
     for (uint8_t dst = 0; dst < 8; ++dst)
     {
@@ -97,6 +224,20 @@ const std::array<Sm83::Handler, 256> Sm83::opcodeTable = []
             t[0x40 + dst * 8 + src] = &Sm83::op_LD_r_r;
         }
     }
+
+    for (uint8_t cc = 0; cc < 4; cc++)
+    {
+        t[0x20 + cc * 8] = &Sm83::op_JR_cc_e8;
+        t[0xC2 + cc * 8] = &Sm83::op_JP_cc_a16;
+        t[0xC4 + cc * 8] = &Sm83::op_CALL_cc_a16;
+        t[0xC0 + cc * 8] = &Sm83::op_RET_cc;
+    }
+
+    for (uint8_t n = 0; n < 8; ++n)
+    {
+        t[0xC7 + n * 8] = &Sm83::op_RST;
+    }
+
     return t;
 }();
 

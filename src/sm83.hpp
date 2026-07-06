@@ -95,9 +95,27 @@ private:
     uint8_t getR(uint8_t idx) const; // idx 0..7 -> B,C,D,E,H,L,(HL),A
     void setR(uint8_t idx, uint8_t val);
 
+    bool checkCond(uint8_t cc) const; // cc: 0=NZ,1=Z,2=NC,3=C
+
     int op_00_NOP(uint8_t opcode);
     int op_06_LD_B_d8(uint8_t opcode);
     int op_LD_r_r(uint8_t opcde);
+
+    int op_JR_e8(uint8_t opcode);    // Ox18
+    int op_JR_cc_e8(uint8_t opcode); // 0x20 0x28 0x30 0x38
+
+    int op_JP_a16(uint8_t opcode);    // 0xC3
+    int op_JP_cc_a16(uint8_t opcode); // 0xC2 0xCA 0xD2 0xDA
+    int op_JP_HL(uint8_t opcode);     // 0xE9
+
+    int op_CALL_a16(uint8_t opcode);    // 0xCD
+    int op_CALL_cc_a16(uint8_t opcode); // 0xC4 0xCC 0xD4 0xDC
+
+    int op_RET(uint8_t opcode);    // 0xC9
+    int op_RET_cc(uint8_t opcode); // 0xC0 0xC8 0xD0 0xD8
+    int op_RETI(uint8_t opcode);   // 0xD9
+
+    int op_RST(uint8_t opcode); // 0xC7 0xCF 0xD7 0xDF 0xE7 0xEF 0xF7 0xFF
 
     int op_unknown(uint8_t opcode);
 };
