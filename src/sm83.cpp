@@ -510,6 +510,116 @@ int Sm83::op_ALU_A_d8(uint8_t opcode)
     return 8;
 }
 
+int Sm83::op_CB_rot(uint8_t cb)
+{
+    uint8_t subop = (cb >> 3) & 0x7;
+    uint8_t idx = cb & 0x7;
+    uint8_t val = getR(idx);
+    uint8_t res = 0;
+    bool carry = false;
+
+    switch (subop)
+    {
+    case 0: // RLC
+        carry = val & 0x80;
+        res = (val << 1) | (carry ? 1 : 0);
+        break;
+    case 1: // RRC
+        carry = val & 0x01;
+        res = (val >> 1) | (carry ? 0x80 : 0);
+        break;
+    case 2: // RL
+        carry = val & 0x80;
+        res = (val << 1) | (getFlag(FLAG_C) ? 1 : 0);
+        break;
+    case 3: // RR
+        carry = val & 0x01;
+        res = (val >> 1) | (getFlag(FLAG_C) ? 0x80 : 0);
+        break;
+    case 4: // SLA
+        carry = val & 0x80;
+        res = val << 1;
+        break;
+    case 5: // SRA
+        carry = val & 0x01;
+        res = (val >> 1) | (val & 0x80); // bit 7 preserved
+        break;
+    case 6: // SWAP
+        res = (val << 4) | (val >> 4);
+        break;
+    case 7: // SRL
+        carry = val & 0x01;
+        res = val >> 1;
+        break;
+    }
+
+    setR(idx, res);
+    setFlag(FLAG_Z, res == 0);
+    setFlag(FLAG_N, false);
+    setFlag(FLAG_H, false);
+    setFlag(FLAG_C, carry);
+
+    if (idx == 6)
+    {
+        return 16;
+    }
+    else
+    {
+        return 8;
+    }
+}
+
+int Sm83::op_CB_BIT(uint8_t cb)
+{
+    uint8_t bit = (cb >> 3) & 0x7;
+    uint8_t idx = cb & 0x7;
+    uint8_t val = getR(idx);
+
+    setFlag(FLAG_Z, !(val & (1 << bit)));
+    setFlag(FLAG_N, false);
+    setFlag(FLAG_H, true);
+    // C not changed
+
+    if (idx == 6)
+    {
+        return 12;
+    }
+    else
+    {
+        return 8;
+    }
+}
+
+int Sm83::op_CB_RES(uint8_t cb)
+{
+    uint8_t bit = (cb >> 3) & 0x7;
+    uint8_t idx = cb & 0x7;
+    setR(idx, getR(idx) & ~(1 << bit));
+    if (idx == 6)
+    {
+        return 16;
+    }
+    else
+    {
+        return 8;
+    }
+}
+
+int Sm83::op_CB_SET(uint8_t cb)
+{
+    uint8_t bit = (cb >> 3) & 0x7;
+    uint8_t idx = cb & 0x7;
+    setR(idx, getR(idx) | (1 << bit));
+    if (idx == 6)
+    {
+        return 16;
+    }
+    else
+    {
+        return 8;
+    }
+}
+
 int Sm83::op_unknown(uint8_t opcode)
 {
     std::fprintf(stderr, "Unknown opcode 0x%02X at PC=%04X\n", opcode, PC - 1);
@@ -589,6 +699,14 @@ bool Sm83::checkCond(uint8_t cc) const
     return false; // unreachable, cc is 2 bits
 }
 
+// CB Dispatcher
+int Sm83::op_CB_prefix(uint8_t opcode)
+{
+    uint8_t cb = bus.read8(PC++);
+    Handler h = cbTable[cb];
+    return (this->*h)(cb);
+}
+
 // Handlers
 const std::array<Sm83::Handler, 256> Sm83::opcodeTable = []
 {
@@ -617,6 +735,7 @@ const std::array<Sm83::Handler, 256> Sm83::opcodeTable = []
     t[0xF0] = &Sm83::op_LDH_a8_A;
     t[0xE2] = &Sm83::op_LD_C_A;
     t[0xF2] = &Sm83::op_LD_C_A;
+    t[0xCB] = &Sm83::op_CB_prefix;
 
     for (uint8_t dst = 0; dst < 8; ++dst)
     {
@@ -685,5 +804,45 @@ const std::array<Sm83::Handler, 256> Sm83::opcodeTable = []
     {
         t[0xC6 + op * 8] = &Sm83::op_ALU_A_d8;
     }
+    return t;
+}();
+
+const std::array<Sm83::Handler, 256> Sm83::cbTable = []
+{
+    std::array<Handler, 256> t{};
+    t.fill(&Sm83::op_unknown);
+
+    for (uint8_t sub = 0; sub < 8; ++sub)
+    {
+        for (uint8_t idx = 0; idx < 8; ++idx)
+        {
+            t[sub * 8 + idx] = &Sm83::op_CB_rot;
+        }
+    }
+
+    for (uint8_t bit = 0; bit < 8; ++bit)
+    {
+        for (uint8_t idx = 0; idx < 8; ++idx)
+        {
+            t[0x40 + bit * 8 + idx] = &Sm83::op_CB_BIT;
+        }
+    }
+
+    for (uint8_t bit = 0; bit < 8; ++bit)
+    {
+        for (uint8_t idx = 0; idx < 8; ++idx)
+        {
+            t[0x80 + bit * 8 + idx] = &Sm83::op_CB_RES;
+        }
+    }
+
+    for (uint8_t bit = 0; bit < 8; ++bit)
+    {
+        for (uint8_t idx = 0; idx < 8; ++idx)
+        {
+            t[0xC0 + bit * 8 + idx] = &Sm83::op_CB_SET;
+        }
+    }
+
     return t;
 }();

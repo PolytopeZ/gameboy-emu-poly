@@ -92,6 +92,7 @@ private:
 
     using Handler = int (Sm83::*)(uint8_t opcode);
     static const std::array<Handler, 256> opcodeTable;
+    static const std::array<Handler, 256> cbTable;
 
     uint8_t getR(uint8_t idx) const; // idx 0..7 -> B,C,D,E,H,L,(HL),A
     void setR(uint8_t idx, uint8_t val);
@@ -139,6 +140,12 @@ private:
     int op_ALU_A_r(uint8_t opcode);      // 0x80-0xBF
     void aluOp(uint8_t op, uint8_t val); // shared ADD/ADC/SUB/SBC/AND/XOR/OR/CP logic
     int op_ALU_A_d8(uint8_t opcode);     // 0xC6/0xCE/0xD6/0xDE/0xE6/0xEE/0xF6/0xFE
+
+    int op_CB_prefix(uint8_t opcode); // 0xCB
+    int op_CB_rot(uint8_t cb);        // CB 0x00-0x3F
+    int op_CB_BIT(uint8_t cb);        // CB 0x40-0x7F
+    int op_CB_RES(uint8_t cb);        // CB 0x80-0xBF
+    int op_CB_SET(uint8_t cb);        // CB 0xC0-0xFF
 
     int op_unknown(uint8_t opcode);
 };
