@@ -406,21 +406,8 @@ int Sm83::op_DEC_rr(uint8_t opcode)
     return 8;
 }
 
-int Sm83::op_ALU_A_r(uint8_t opcode)
+void Sm83::aluOp(uint8_t op, uint8_t val)
 {
-    uint8_t op = (opcode >> 3) & 0x7;
-    uint8_t idx = opcode & 0x7;
-    uint8_t val = getR(idx);
-    int cycles;
-    if (idx == 6)
-    {
-        cycles = 8;
-    }
-    else
-    {
-        cycles = 4;
-    }
-
     switch (op)
     {
     case 0: // ADD
@@ -493,8 +480,34 @@ int Sm83::op_ALU_A_r(uint8_t opcode)
         break;
     }
     }
+}
 
-    return cycles;
+int Sm83::op_ALU_A_r(uint8_t opcode)
+{
+    uint8_t op = (opcode >> 3) & 0x7;
+    uint8_t idx = opcode & 0x7;
+    uint8_t val = getR(idx);
+
+    aluOp(op, val);
+
+    if (idx == 6)
+    {
+        return 8;
+    }
+    else
+    {
+        return 4;
+    }
+}
+
+int Sm83::op_ALU_A_d8(uint8_t opcode)
+{
+    uint8_t op = (opcode >> 3) & 0x7;
+    uint8_t val = bus.read8(PC++);
+
+    aluOp(op, val);
+
+    return 8;
 }
 
 int Sm83::op_unknown(uint8_t opcode)
@@ -666,6 +679,11 @@ const std::array<Sm83::Handler, 256> Sm83::opcodeTable = []
         {
             t[0x80 + op * 8 + idx] = &Sm83::op_ALU_A_r;
         }
+    }
+
+    for (uint8_t op = 0; op < 8; ++op)
+    {
+        t[0xC6 + op * 8] = &Sm83::op_ALU_A_d8;
     }
     return t;
 }();

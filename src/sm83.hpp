@@ -136,7 +136,9 @@ private:
     int op_INC_rr(uint8_t opcode); // 0x03/0x13/0x23/0x33
     int op_DEC_rr(uint8_t opcode); // 0x0B/0x1B/0x2B/0x3B
 
-    int op_ALU_A_r(uint8_t opcode); // 0x80-0xBF
+    int op_ALU_A_r(uint8_t opcode);      // 0x80-0xBF
+    void aluOp(uint8_t op, uint8_t val); // shared ADD/ADC/SUB/SBC/AND/XOR/OR/CP logic
+    int op_ALU_A_d8(uint8_t opcode);     // 0xC6/0xCE/0xD6/0xDE/0xE6/0xEE/0xF6/0xFE
 
     int op_unknown(uint8_t opcode);
 };
