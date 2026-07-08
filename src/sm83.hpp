@@ -136,5 +136,7 @@ private:
     int op_INC_rr(uint8_t opcode); // 0x03/0x13/0x23/0x33
     int op_DEC_rr(uint8_t opcode); // 0x0B/0x1B/0x2B/0x3B
 
+    int op_ALU_A_r(uint8_t opcode); // 0x80-0xBF
+
     int op_unknown(uint8_t opcode);
 };

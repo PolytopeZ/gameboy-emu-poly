@@ -406,6 +406,97 @@ int Sm83::op_DEC_rr(uint8_t opcode)
     return 8;
 }
 
+int Sm83::op_ALU_A_r(uint8_t opcode)
+{
+    uint8_t op = (opcode >> 3) & 0x7;
+    uint8_t idx = opcode & 0x7;
+    uint8_t val = getR(idx);
+    int cycles;
+    if (idx == 6)
+    {
+        cycles = 8;
+    }
+    else
+    {
+        cycles = 4;
+    }
+
+    switch (op)
+    {
+    case 0: // ADD
+    {
+        uint16_t res = A + val;
+        setFlag(FLAG_H, ((A & 0xF) + (val & 0xF)) > 0xF);
+        setFlag(FLAG_C, res > 0xFF);
+        A = (uint8_t)res;
+        setFlag(FLAG_Z, A == 0);
+        setFlag(FLAG_N, false);
+        break;
+    }
+    case 1: // ADC - Add carry-in
+    {
+        uint8_t carry = getFlag(FLAG_C) ? 1 : 0;
+        uint16_t res = A + val + carry;
+        setFlag(FLAG_H, ((A & 0xF) + (val & 0xF) + carry) > 0xF);
+        setFlag(FLAG_C, res > 0xFF);
+        A = (uint8_t)res;
+        setFlag(FLAG_Z, A == 0);
+        setFlag(FLAG_N, false);
+        break;
+    }
+    case 2: // SUB
+        setFlag(FLAG_H, (A & 0xF) < (val & 0xF));
+        setFlag(FLAG_C, A < val);
+        A = A - val;
+        setFlag(FLAG_Z, A == 0);
+        setFlag(FLAG_N, true);
+        break;
+    case 3: // SBC - Sub borrow-in
+    {
+        uint8_t carry = getFlag(FLAG_C) ? 1 : 0;
+        int res = A - val - carry;
+        setFlag(FLAG_H, (A & 0xF) < ((val & 0xF) + carry));
+        setFlag(FLAG_C, res < 0);
+        A = (uint8_t)res;
+        setFlag(FLAG_Z, A == 0);
+        setFlag(FLAG_N, true);
+        break;
+    }
+    case 4: // AND
+        A &= val;
+        setFlag(FLAG_Z, A == 0);
+        setFlag(FLAG_N, false);
+        setFlag(FLAG_H, true);
+        setFlag(FLAG_C, false);
+        break;
+    case 5: // XOR
+        A ^= val;
+        setFlag(FLAG_Z, A == 0);
+        setFlag(FLAG_N, false);
+        setFlag(FLAG_H, false);
+        setFlag(FLAG_C, false);
+        break;
+    case 6: // OR
+        A |= val;
+        setFlag(FLAG_Z, A == 0);
+        setFlag(FLAG_N, false);
+        setFlag(FLAG_H, false);
+        setFlag(FLAG_C, false);
+        break;
+    case 7: // CP - Compare
+    {
+        setFlag(FLAG_H, (A & 0xF) < (val & 0xF));
+        setFlag(FLAG_C, A < val);
+        uint8_t result = A - val;
+        setFlag(FLAG_Z, result == 0);
+        setFlag(FLAG_N, true);
+        break;
+    }
+    }
+
+    return cycles;
+}
+
 int Sm83::op_unknown(uint8_t opcode)
 {
     std::fprintf(stderr, "Unknown opcode 0x%02X at PC=%04X\n", opcode, PC - 1);
@@ -569,5 +660,12 @@ const std::array<Sm83::Handler, 256> Sm83::opcodeTable = []
         t[0x0B + rr * 0x10] = &Sm83::op_DEC_rr;
     }
 
+    for (uint8_t op = 0; op < 8; ++op)
+    {
+        for (uint8_t idx = 0; idx < 8; ++idx)
+        {
+            t[0x80 + op * 8 + idx] = &Sm83::op_ALU_A_r;
+        }
+    }
     return t;
 }();
