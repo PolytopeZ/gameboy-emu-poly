@@ -147,5 +147,9 @@ private:
     int op_CB_RES(uint8_t cb);        // CB 0x80-0xBF
     int op_CB_SET(uint8_t cb);        // CB 0xC0-0xFF
 
+    int op_rotate_A(uint8_t opcode); // 0x07/0x0F/0x17/0x1F
+
+    int op_ADD_HL_rr(uint8_t opcode); // 0x09/0x19/0x29/0x39
+
     int op_unknown(uint8_t opcode);
 };

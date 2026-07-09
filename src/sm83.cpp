@@ -620,6 +620,69 @@ int Sm83::op_CB_SET(uint8_t cb)
     }
 }
 
+int Sm83::op_rotate_A(uint8_t opcode)
+{
+    uint8_t subop = (opcode >> 3) & 0x3;
+    bool carry = false;
+
+    switch (subop)
+    {
+    case 0: // RLCA
+        carry = A & 0x80;
+        A = (A << 1) | (carry ? 1 : 0);
+        break;
+    case 1: // RRCA
+        carry = A & 0x01;
+        A = (A >> 1) | (carry ? 0x80 : 0);
+        break;
+    case 2: // RLA
+        carry = A & 0x80;
+        A = (A << 1) | (getFlag(FLAG_C) ? 1 : 0);
+        break;
+    case 3: // RRA
+        carry = A & 0x01;
+        A = (A >> 1) | (getFlag(FLAG_C) ? 0x80 : 0);
+        break;
+    }
+
+    setFlag(FLAG_Z, false); // always 0
+    setFlag(FLAG_N, false);
+    setFlag(FLAG_H, false);
+    setFlag(FLAG_C, carry);
+
+    return 4;
+}
+
+int Sm83::op_ADD_HL_rr(uint8_t opcode)
+{
+    uint8_t rr = (opcode >> 4) & 0x3;
+    uint16_t val;
+    switch (rr)
+    {
+    case 0:
+        val = BC.val;
+        break;
+    case 1:
+        val = DE.val;
+        break;
+    case 2:
+        val = HL.val;
+        break;
+    case 3:
+        val = SP;
+        break;
+    }
+
+    uint32_t result = HL.val + val;
+    setFlag(FLAG_H, ((HL.val & 0xFFF) + (val & 0xFFF)) > 0xFFF);
+    setFlag(FLAG_C, result > 0xFFFF);
+    HL.val = (uint16_t)result;
+    setFlag(FLAG_N, false);
+    // Z untouched
+
+    return 8;
+}
+
 int Sm83::op_unknown(uint8_t opcode)
 {
     std::fprintf(stderr, "Unknown opcode 0x%02X at PC=%04X\n", opcode, PC - 1);
@@ -803,6 +866,16 @@ const std::array<Sm83::Handler, 256> Sm83::opcodeTable = []
     for (uint8_t op = 0; op < 8; ++op)
     {
         t[0xC6 + op * 8] = &Sm83::op_ALU_A_d8;
+    }
+
+    for (uint8_t i = 0; i < 4; ++i)
+    {
+        t[0x07 + i * 8] = &Sm83::op_rotate_A;
+    }
+
+    for (uint8_t rr = 0; rr < 4; ++rr)
+    {
+        t[0x09 + rr * 0x10] = &Sm83::op_ADD_HL_rr;
     }
     return t;
 }();
